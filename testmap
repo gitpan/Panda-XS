@@ -1,0 +1,30 @@
+TYPEMAP
+
+MyOPTR*      _PXS_OPTR_MYBASE
+MyOPTRChild* _PXS_OPTR_MYBASE
+MyBase*      _PXS_MYBASE
+MyChild*     _PXS_MYBASE
+MyOther*     T_OEXT
+MixBase*     T_OEXT
+MixPluginA*  T_OEXT
+MixPluginB*  T_OEXT
+Wrapper*     _PXS_WRAPPER
+Wrapped*     _PXS_WRAPPED
+MyBaseAV*    T_OEXT_AV
+MyBaseHV*    T_OEXT_HV
+
+INPUT
+
+_PXS_OPTR_MYBASE : T_OPTR(basetype=MyBase*)
+_PXS_MYBASE      : T_OEXT(basetype=MyBase*)
+_PXS_WRAPPER     : T_OEXT(basetype=Wrapper*)
+_PXS_WRAPPED     : _PXS_WRAPPER(nocast=1)
+    $var = (Wrapped*)((Wrapper*)$var)->obj;
+
+OUTPUT
+
+_PXS_OPTR_MYBASE : T_OPTR(basetype=MyBase*)
+_PXS_MYBASE      : T_OEXT(basetype=MyBase*)
+_PXS_WRAPPER     : T_OEXT(basetype=Wrapper*)
+_PXS_WRAPPED     : _PXS_WRAPPER(nocast=1)
+    $var = (Wrapped*)new Wrapper($var);

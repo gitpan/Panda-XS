@@ -1,0 +1,128 @@
+# "perlobject.map"  Crazy Panda
+
+TYPEMAP
+
+int32_t     T_IV
+int16_t     T_IV
+int8_t      T_IV
+uint32_t    T_UV
+uint16_t    T_UV
+uint8_t     T_UV
+
+# time_t should follow IV size of machine
+time_t      T_IV
+
+AV* T_AV
+HV* T_HV
+CV* T_CV
+IO* T_IO
+
+OSV*    T_OSV
+OAV*    T_OAV
+OHV*    T_OHV
+OIO*    T_OIO
+
+######################################################################
+OUTPUT
+
+T_REF
+    $arg = NULL;
+    $arg = xs::typemap_out_ref((SV*)$var);
+T_AV : T_REF
+T_HV : T_REF
+T_CV : T_REF
+T_IO : T_REF
+
+T_OREF
+    $arg = NULL;
+    $arg = xs::typemap_out_oref((SV*)$var, CLASS);
+T_OSV : T_OREF
+T_OAV : T_OREF
+T_OHV : T_OREF
+T_OIO : T_OREF
+    
+T_OPTR
+    $arg = NULL;
+    ${
+        $type =~ s/\s+//g;
+        $p{basetype} ||= $type;
+        $p{_downgraded} = $p{nocast} || $p{basetype} eq $type ? $var : "static_cast<$p{basetype}>($var)";
+        \"";
+    };
+    $arg = xs::typemap_out_optr($p{_downgraded}, CLASS);
+
+T_OEXT
+    $arg = NULL;
+    ${
+        $type =~ s/\s+//g;
+        $p{basetype} ||= $type;
+        $p{_downgraded} = $p{nocast} || $p{basetype} eq $type ? $var : "static_cast<$p{basetype}>($var)";
+        \"";
+    };
+    INIT: SV* self = NULL;
+    static xs::payload_marker_t* __${var}_marker = xs::sv_payload_marker("$p{basetype}");
+    $arg = xs::typemap_out_oext(self, $p{_downgraded}, CLASS, __${var}_marker);
+T_OEXT_AV : T_OEXT
+    if (!self && $var) self = (SV*)newAV();
+T_OEXT_HV : T_OEXT
+    if (!self && $var) self = (SV*)newHV();
+
+######################################################################
+INPUT
+
+T_AV
+    $var = xs::typemap_in_av($arg);
+    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not an ARRAY reference\");
+    
+T_HV
+    $var = xs::typemap_in_hv($arg);
+    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not a HASH reference\");
+
+T_CV
+    $var = xs::typemap_in_cv($arg);
+    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not a CODE reference\");
+
+T_IO
+    $var = xs::typemap_in_io($arg);
+    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not an IO reference\");
+
+T_OSV
+    $var = xs::typemap_in_osv($arg);
+    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed SCALAR reference\");
+
+T_OAV
+    $var = xs::typemap_in_oav($arg);
+    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed ARRAY reference\");
+    
+T_OHV
+    $var = xs::typemap_in_ohv($arg);
+    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed HASH reference\");
+
+T_OIO
+    $var = xs::typemap_in_oio($arg);
+    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed IO reference\");
+
+T_OPTR
+    ${
+        $type =~ s/\s+//g;
+        $p{basetype} ||= $type;
+        my $downgraded = qq!($p{basetype})xs::typemap_in_optr($arg)!;
+        $p{_upgraded} = $p{nocast} || $p{basetype} eq $type ? qq!($type)($downgraded)! : qq!dynamic_cast<$type>($downgraded)!;
+        \(\"\");
+    }
+    $var = $p{_upgraded};
+	if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak( \"${Package}::$func_name() -- $var is not a valid OPTR object\" );
+
+T_OEXT
+    ${
+        $type =~ s/\s+//g;
+        $p{basetype} ||= $type;
+        my $downgraded = qq!($p{basetype})xs::typemap_in_oext($arg, __${var}_marker)!;
+        $p{_upgraded} = $p{nocast} || $p{basetype} eq $type ? qq!($type)($downgraded)! : qq!dynamic_cast<$type>($downgraded)!;
+        \(\"\");
+    }
+    static xs::payload_marker_t* __${var}_marker = xs::sv_payload_marker(\"$p{basetype}\");
+    $var = $p{_upgraded};
+    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak( \"${Package}::$func_name() -- $var($arg) is not a valid OEXT object\" );
+T_OEXT_AV : T_OEXT
+T_OEXT_HV : T_OEXT

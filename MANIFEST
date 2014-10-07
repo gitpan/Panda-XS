@@ -1,0 +1,30 @@
+Changes
+lib/Panda/XS.pm
+Makefile.PL
+MANIFEST			This list of files
+misc/mytest.plx
+src/xs/ppport.h
+src/xs/xs.cc
+src/xs/xs.h
+t/00-Panda-XS.t
+t/01-payload.t
+t/02-upgrade.t
+t/03-typemap-privitives.t
+t/04-typemap-refs.t
+t/05-typemap-orefs.t
+t/06-typemap-optr-single.t
+t/07-typemap-optr-child.t
+t/08-typemap-oext-single.t
+t/09-typemap-oext-child.t
+t/10-typemap-oext-join.t
+t/11-typemap-oext-mixin.t
+t/12-typemap-oext-wrap.t
+t/13-typemap-oext-avhv.t
+test.xs
+testmap
+typemap
+typemap32
+typemap64
+XS.xs
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
