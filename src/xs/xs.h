@@ -66,28 +66,35 @@ inline SV* typemap_out_ref (SV* var) {
     return var ? newRV_noinc(var) : &PL_sv_undef;
 }
 
+inline SV* typemap_out_oref (SV* var, HV* CLASS) {
+    return var ? sv_bless(newRV_noinc(var), CLASS) : &PL_sv_undef;
+}
 inline SV* typemap_out_oref (SV* var, const char* CLASS) {
-    return var ? sv_bless(newRV_noinc(var), gv_stashpvn(CLASS, strlen(CLASS), GV_ADD)) : &PL_sv_undef;
+    return typemap_out_oref(var, gv_stashpvn(CLASS, strlen(CLASS), GV_ADD));
 }
-
 inline SV* typemap_out_oref (SV* var, SV* CLASS) {
-    return var ? sv_bless(newRV_noinc(var), gv_stashsv(CLASS, GV_ADD)) : &PL_sv_undef;
+    return typemap_out_oref(var, gv_stashsv(CLASS, GV_ADD));
 }
 
+inline SV* typemap_out_optr (void* var, HV* CLASS) {
+    return var ? sv_bless(newRV_noinc(newSViv((IV)var)), CLASS) : &PL_sv_undef;
+}
 inline SV* typemap_out_optr (void* var, const char* CLASS) {
-    return var ? sv_bless(newRV_noinc(newSViv((IV)var)), gv_stashpvn(CLASS, strlen(CLASS), GV_ADD)) : &PL_sv_undef;
+    return typemap_out_optr(var, gv_stashpvn(CLASS, strlen(CLASS), GV_ADD));
 }
-
 inline SV* typemap_out_optr (void* var, SV* CLASS) {
-    return var ? sv_bless(newRV_noinc(newSViv((IV)var)), gv_stashsv(CLASS, GV_ADD)) : &PL_sv_undef;
+    return typemap_out_optr(var, gv_stashsv(CLASS, GV_ADD));
 }
 
-SV* _typemap_out_oext (SV* self, void* var, SV* CLASS_SV, const char* CLASS, payload_marker_t* marker);
+SV* _typemap_out_oext (SV* self, void* var, HV* stash, SV* CLASS_SV, const char* CLASS, payload_marker_t* marker);
+inline SV* typemap_out_oext (SV* self, void* var, HV* CLASS, payload_marker_t* marker = NULL) {
+    return _typemap_out_oext(self, var, CLASS, NULL, NULL, marker);
+}
 inline SV* typemap_out_oext (SV* self, void* var, const char* CLASS, payload_marker_t* marker = NULL) {
-    return _typemap_out_oext(self, var, NULL, CLASS, marker);
+    return _typemap_out_oext(self, var, NULL, NULL, CLASS, marker);
 }
 inline SV* typemap_out_oext (SV* self, void* var, SV* CLASS, payload_marker_t* marker = NULL) {
-    return _typemap_out_oext(self, var, CLASS, NULL, marker);
+    return _typemap_out_oext(self, var, NULL, CLASS, NULL, marker);
 }
 
 inline AV* typemap_in_av (SV* arg) {

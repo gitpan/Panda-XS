@@ -1,3 +1,5 @@
+0.1.2    09.10.2014
+           - added support for HV* CLASS in object constructors (output typemaps)
 0.1.1    08.10.2014
            - docs fixes
 0.1.0    04.10.2014

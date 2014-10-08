@@ -32,7 +32,7 @@
       "configure" : {
          "requires" : {
             "ExtUtils::MakeMaker" : "6.76",
-            "Panda::Install" : "v0.1.7"
+            "Panda::Install" : "v0.1.8"
          }
       },
       "runtime" : {
@@ -43,5 +43,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "v0.1.1"
+   "version" : "v0.1.2"
 }

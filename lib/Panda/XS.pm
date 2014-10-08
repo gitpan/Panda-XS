@@ -7,7 +7,7 @@ Panda::XS - useful features and typemaps for XS modules.
 
 =cut
 
-our $VERSION = '0.1.1';
+our $VERSION = '0.1.2';
 require Panda::XSLoader;
 Panda::XSLoader::load();
 
@@ -70,7 +70,7 @@ MyXS.xs:
     SV*
     new (const char* CLASS)
     CODE:
-        RETVAL = sv_bless( newRV_noinc((SV*)newHV()), gv_stashpv(CLASS,1) );
+        RETVAL = sv_bless( newRV_noinc((SV*)newHV()), gv_stashpv(CLASS, GV_ADD) );
         rv_payload_attach(RETVAL, new MyClass2());
     OUTPUT:
         RETVAL
@@ -249,9 +249,42 @@ See C<HOW TO> for details.
 
 =item CLASS (required)
 
-Define this variable as either 'const char*' or 'SV*' and set it to a class name you want your object to be blessed to.
-It is done automatically for methods 'new', so that you must not define this variable in 'new' methods. However you can change
-it's value if you want to.
+Define this variable as either 'const char*' or 'SV*' or 'HV*' and set it to a class name or a class stash (HV*) you want your
+object to be blessed to. It is done automatically for methods 'new', so that you must not define this variable in 'new' methods.
+However you can change it's value if you want to.
+
+=over To receive maximum perfomance, follow these rules (in order they appear):
+
+=item If you already have class stash, set HV* CLASS.
+
+For example, in an object method, which returns another object, like 'clone':
+
+    HV* CLASS = SvSTASH(SvRV(ST(0)))
+    
+It's the most effective way for Panda::XS to bless your newly created object. However doing this:
+
+    HV* CLASS = gv_stashpv(classname_str, GV_ADD);
+    
+won't lead to any perfomance gain over setting const char* CLASS.
+
+=item If not, but you have a class name in SV*, set SV* CLASS:
+
+For example, in a class method, which creates object.
+
+    SV* CLASS = ST(0);
+    
+In some cases it runs much faster than setting const char* CLASS (when ST(0) is a shared COW string, since perl 5.21.4).
+
+Don't do it for method 'new' because ExtUtils::ParseXS automatically sets "const char* CLASS = SvPV_nolen(ST(0));" which
+unfortunately is not the most effective way. Of course it happens only if you "typemap"ed your function (MyClass* MyClass::new ())
+
+=item If you don't have anything of above, set const char* CLASS
+
+For example, in constructors that are called as functions, not as class methods, like 'uri("http://ya.ru")'
+
+    const char* CLASS = "MyFramework::URI";
+
+=back
 
 =item self
 
@@ -273,7 +306,7 @@ HV or AV based object with C pointer attached.
     # XS
     
     MyClass*
-    new (const char* CLASS)
+    MyClass::new ()
     CODE:
         RETVAL = new MyClass();
 
@@ -297,7 +330,7 @@ the above works like
     # XS
     
     MyClass*
-    new (const char* CLASS)
+    MyClass::new ()
     CODE:
         RETVAL = new MyClass();
         
@@ -323,7 +356,7 @@ and exactly like
     # XS
     
     MyClass*
-    new (const char* CLASS)
+    MyClass::new ()
     CODE:
         RETVAL = new MyClass();
 
@@ -499,7 +532,7 @@ Foo.xs (Here and after we use extended L<Panda::Install> XS syntax to make XS fu
     }
     
     ClassA* ClassA::clone () {
-        const char* CLASS = HvNAME(SvSTASH(ST(0)));
+        HV* CLASS = SvSTASH(SvRV(ST(0)));
         RETVAL = THIS->clone();
     }
     
@@ -606,7 +639,7 @@ XS:
     }
     
     Milk* Milk::clone () { // cloning just Milk* without Bow* does NOT make sense. So we must call SUPER::clone
-        const char* CLASS = HvNAME(SvSTASH(SvRV(ST(0))));
+        HV* CLASS = SvSTASH(SvRV(ST(0)));
         self = xs::call_super(cv, &ST(0), items);
         RETVAL = THIS->clone();
     } // new Foo::Milk object returned containing cloned Milk* and Bow* classes.
@@ -646,7 +679,7 @@ XS:
     }
     
     MyPlugin* MyPlugin::clone () {
-        const char* CLASS = HvNAME(SvSTASH(ST(0)));
+        HV* CLASS = SvSTASH(SvRV(ST(0)));
         self = xs::call_next_maybe(cv, &ST(0), items);
         RETVAL = THIS->clone();
     } // new Foo::MyPlugin object returned containing cloned MyPlugin* and all data of other classes
