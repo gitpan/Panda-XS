@@ -258,7 +258,7 @@ void OIO::set_val (OIO* other) {
 }
 
 OIO* OIO::clone () {
-    const char* CLASS = HvNAME(SvSTASH(THIS));
+    HV* CLASS = SvSTASH(THIS);
     RETVAL = THIS;
 }
 

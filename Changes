@@ -1,3 +1,5 @@
+0.1.3    10.10.2014
+           - allow only RV to undef for obj2hv/obj2av, as perls < 5.20 don't allow to upgrade strings
 0.1.2    09.10.2014
            - added support for HV* CLASS in object constructors (output typemaps)
 0.1.1    08.10.2014

@@ -39,20 +39,14 @@ int sv_payload_detach (SV* sv) {
 void obj2hv (SV* rv) {
     if (!SvROK(rv)) croak("Panda::XS::obj2hv: argument is not a reference");
     SV* obj = SvRV(rv);
-    if (SvOK(obj)) {
-        if (SvPOK(obj)) sv_setpv(obj, NULL);
-        else SvOK_off(obj);
-    }
+    if (SvOK(obj)) croak("Panda::XS::obj2hv: only references to undefs can be upgraded");
     SvUPGRADE(obj, SVt_PVHV);
 }
 
 void obj2av (SV* rv) {
     if (!SvROK(rv)) croak("Panda::XS::obj2av: argument is not a reference");
     SV* obj = SvRV(rv);
-    if (SvOK(obj)) {
-        if (SvPOK(obj)) sv_setpv(obj, NULL);
-        else SvOK_off(obj);
-    }
+    if (SvOK(obj)) croak("Panda::XS::obj2av: only references to undefs can be upgraded");
     SvUPGRADE(obj, SVt_PVAV);
 }
 

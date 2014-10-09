@@ -7,7 +7,7 @@ Panda::XS - useful features and typemaps for XS modules.
 
 =cut
 
-our $VERSION = '0.1.2';
+our $VERSION = '0.1.3';
 require Panda::XSLoader;
 Panda::XSLoader::load();
 
