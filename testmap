@@ -1,30 +1,62 @@
 TYPEMAP
 
-MyOPTR*      _PXS_OPTR_MYBASE
-MyOPTRChild* _PXS_OPTR_MYBASE
-MyBase*      _PXS_MYBASE
-MyChild*     _PXS_MYBASE
-MyOther*     T_OEXT
-MixBase*     T_OEXT
-MixPluginA*  T_OEXT
-MixPluginB*  T_OEXT
-Wrapper*     _PXS_WRAPPER
-Wrapped*     _PXS_WRAPPED
-MyBaseAV*    T_OEXT_AV
-MyBaseHV*    T_OEXT_HV
+MyOPTR*                PXS_OPTR_MYBASE
+MyOPTRChild*           PXS_OPTR_MYBASE
+MyBase*                PXS_MYBASE
+MyChild*               PXS_MYBASE
+MyOther*               T_OEXT
+MixBase*               T_OEXT
+MixPluginA*            T_OEXT
+MixPluginB*            T_OEXT
+Wrapper*               PXS_WRAPPER
+Wrapped*               PXS_WRAPPED
+MyBaseAV*              T_OEXT_AV
+MyBaseHV*              T_OEXT_HV
+MyRefCounted*          PXS_REFCOUNTED
+MyRefCountedChild*     PXS_REFCOUNTED
+MyRefCountedSP         PXS_REFCOUNTED_SP
+MyRefCountedChildSP    PXS_REFCOUNTED_SP
+MyClassSP              PXS_MYCLASS_SP
+MyClassChildSP         PXS_MYCLASS_SP
+MyClassSSP             PXS_MYCLASS_SSP
+MyClassChildSSP        PXS_MYCLASS_SSP
+PTRMyRefCounted*       PXS_PTR_REFCOUNTED
+PTRMyRefCountedChild*  PXS_PTR_REFCOUNTED
+PTRMyRefCountedSP      PXS_PTR_REFCOUNTED_SP
+PTRMyRefCountedChildSP PXS_PTR_REFCOUNTED_SP
+PTRMyClassSP           PXS_PTR_MYCLASS_SP
+PTRMyClassChildSP      PXS_PTR_MYCLASS_SP
+PTRMyClassSSP          PXS_PTR_MYCLASS_SSP
+PTRMyClassChildSSP     PXS_PTR_MYCLASS_SSP
 
 INPUT
 
-_PXS_OPTR_MYBASE : T_OPTR(basetype=MyBase*)
-_PXS_MYBASE      : T_OEXT(basetype=MyBase*)
-_PXS_WRAPPER     : T_OEXT(basetype=Wrapper*)
-_PXS_WRAPPED     : _PXS_WRAPPER(nocast=1)
+PXS_OPTR_MYBASE       : T_OPTR(basetype=MyBase*)
+PXS_MYBASE            : T_OEXT(basetype=MyBase*)
+PXS_WRAPPER           : T_OEXT(basetype=Wrapper*)
+PXS_WRAPPED           : PXS_WRAPPER(nocast=1)
     $var = (Wrapped*)((Wrapper*)$var)->obj;
+PXS_REFCOUNTED        : T_OEXT_REFCNT(basetype=MyRefCounted*)
+PXS_REFCOUNTED_SP     : T_OEXT_SHARED(basetype=MyRefCountedSP)
+PXS_MYCLASS_SP        : T_OEXT_SHARED(basetype=MyClassSP)
+PXS_MYCLASS_SSP       : T_OEXT_SHARED(basetype=MyClassSSP)
+PXS_PTR_REFCOUNTED    : T_OPTR_REFCNT(basetype=PTRMyRefCounted*)
+PXS_PTR_REFCOUNTED_SP : T_OPTR_SHARED(basetype=PTRMyRefCountedSP)
+PXS_PTR_MYCLASS_SP    : T_OPTR_SHARED(basetype=PTRMyClassSP)
+PXS_PTR_MYCLASS_SSP   : T_OPTR_SHARED(basetype=PTRMyClassSSP)
 
 OUTPUT
 
-_PXS_OPTR_MYBASE : T_OPTR(basetype=MyBase*)
-_PXS_MYBASE      : T_OEXT(basetype=MyBase*)
-_PXS_WRAPPER     : T_OEXT(basetype=Wrapper*)
-_PXS_WRAPPED     : _PXS_WRAPPER(nocast=1)
+PXS_OPTR_MYBASE       : T_OPTR(basetype=MyBase*)
+PXS_MYBASE            : T_OEXT(basetype=MyBase*)
+PXS_WRAPPER           : T_OEXT(basetype=Wrapper*)
+PXS_WRAPPED           : PXS_WRAPPER(nocast=1)
     $var = (Wrapped*)new Wrapper($var);
+PXS_REFCOUNTED        : T_OEXT_REFCNT(basetype=MyRefCounted*)
+PXS_REFCOUNTED_SP     : T_OEXT_SHARED(basetype=MyRefCountedSP)
+PXS_MYCLASS_SP        : T_OEXT_SHARED(basetype=MyClassSP)
+PXS_MYCLASS_SSP       : T_OEXT_SHARED(basetype=MyClassSSP)
+PXS_PTR_REFCOUNTED    : T_OPTR_REFCNT(basetype=PTRMyRefCounted*)
+PXS_PTR_REFCOUNTED_SP : T_OPTR_SHARED(basetype=PTRMyRefCountedSP)
+PXS_PTR_MYCLASS_SP    : T_OPTR_SHARED(basetype=PTRMyClassSP)
+PXS_PTR_MYCLASS_SSP   : T_OPTR_SHARED(basetype=PTRMyClassSSP)

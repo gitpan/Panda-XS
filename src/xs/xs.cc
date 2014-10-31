@@ -84,10 +84,12 @@ SV* call_next (CV* cv, SV** args, I32 items, next_t type, I32 flags) {
     return ret;
 }
 
-#define _PXS_TMOUT_STASH(stash, CLASS_SV, CLASS) \
-    (stash ? stash : (CLASS_SV ? gv_stashsv(CLASS_SV, GV_ADD) : gv_stashpvn(CLASS, strlen(CLASS), GV_ADD)))
+static inline HV* _get_stash (HV* stash)         { return stash; }
+static inline HV* _get_stash (SV* CLASS)         { return gv_stashsv(CLASS, GV_ADD); }
+static inline HV* _get_stash (const char* CLASS) { return gv_stashpvn(CLASS, strlen(CLASS), GV_ADD); }
 
-SV* _typemap_out_oext (SV* obase, void* var, HV* stash, SV* CLASS_SV, const char* CLASS, payload_marker_t* marker) {
+template <typename C>
+static inline SV* _typemap_out_oext_ (SV* obase, void* var, C CLASS, payload_marker_t* marker) {
     if (!var) return &PL_sv_undef;
     SV* objrv;
     if (obase) {
@@ -97,17 +99,27 @@ SV* _typemap_out_oext (SV* obase, void* var, HV* stash, SV* CLASS_SV, const char
         }
         else {
             objrv = newRV_noinc(obase);
-            sv_bless(objrv, _PXS_TMOUT_STASH(stash, CLASS_SV, CLASS));
+            sv_bless(objrv, _get_stash(CLASS));
         }
     } else {
         obase = newSV(0);
         objrv = newRV_noinc(obase);
-        sv_bless(objrv, _PXS_TMOUT_STASH(stash, CLASS_SV, CLASS));
+        sv_bless(objrv, _get_stash(CLASS));
     }
-
     sv_payload_attach(obase, var, marker);
-
     return objrv;
+}
+
+SV* _typemap_out_oext (SV* obase, void* var, HV* CLASS, payload_marker_t* marker) {
+    return _typemap_out_oext_(obase, var, CLASS, marker);
+}
+
+SV* _typemap_out_oext (SV* obase, void* var, SV* CLASS, payload_marker_t* marker) {
+    return _typemap_out_oext_(obase, var, CLASS, marker);
+}
+
+SV* _typemap_out_oext (SV* obase, void* var, const char* CLASS, payload_marker_t* marker) {
+    return _typemap_out_oext_(obase, var, CLASS, marker);
 }
 
 };

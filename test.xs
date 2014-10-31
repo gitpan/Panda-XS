@@ -1,4 +1,8 @@
 #include <xs/xs.h>
+#include <panda/refcnt.h>
+
+using panda::shared_ptr;
+using panda::RefCounted;
 
 static int dcnt = 0;
 
@@ -84,11 +88,71 @@ class Wrapper {
     }
 };
 
+class MyRefCounted : public RefCounted {
+    public:
+    int val;
+    MyRefCounted (int val) : val(val) { }
+    virtual ~MyRefCounted () {
+        dcnt++;
+    }
+};
+
+class MyRefCountedChild : public MyRefCounted {
+    public:
+    int val2;
+    MyRefCountedChild (int val, int val2) : val2(val2), MyRefCounted(val) { }
+    virtual ~MyRefCountedChild () {
+        dcnt++;
+    }
+};
+
+class MyClass {
+    public:
+    int val;
+    MyClass (int val) : val(val) { }
+    virtual ~MyClass () {
+        dcnt++;
+    }
+};
+
+class MyClassChild : public MyClass {
+    public:
+    int val2;
+    MyClassChild (int val, int val2) : val2(val2), MyClass(val) { }
+    virtual ~MyClassChild () {
+        dcnt++;
+    }
+};
+
+typedef panda::shared_ptr<MyRefCounted> MyRefCountedSP;
+typedef panda::shared_ptr<MyRefCountedChild> MyRefCountedChildSP;
+typedef panda::shared_ptr<MyClass> MyClassSP;
+typedef panda::shared_ptr<MyClassChild> MyClassChildSP;
+typedef MyRefCounted PTRMyRefCounted;
+typedef MyRefCountedChild PTRMyRefCountedChild;
+typedef MyRefCountedSP PTRMyRefCountedSP;
+typedef MyRefCountedChildSP PTRMyRefCountedChildSP;
+typedef MyClassSP PTRMyClassSP;
+typedef MyClassChildSP PTRMyClassChildSP;
+#ifdef CPP11X
+typedef std::shared_ptr<MyClass> MyClassSSP;
+typedef std::shared_ptr<MyClassChild> MyClassChildSSP;
+typedef MyClassSSP PTRMyClassSSP;
+typedef MyClassChildSSP PTRMyClassChildSSP;
+#endif
+
 typedef MyBase  MyOPTR;
 typedef MyChild MyOPTRChild;
 typedef MyBase  Wrapped;
 typedef MyBase  MyBaseAV;
 typedef MyBase  MyBaseHV;
+
+static MyRefCounted* st_myrefcounted;
+static MyRefCountedSP st_myrefcounted_sp;
+static MyClassSP st_myclass_sp;
+#ifdef CPP11X
+static MyClassSSP st_myclass_ssp;
+#endif
 
 MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test
 PROTOTYPES: DISABLE
@@ -168,6 +232,123 @@ uint64_t cv_in (CV* val) {
 int dcnt (SV* newval = NULL) {
     if (newval) dcnt = SvIV(newval);
     RETVAL = dcnt;
+}
+
+void hold_myrefcounted (MyRefCounted* obj) {
+    obj->retain();
+    st_myrefcounted = obj;
+}
+
+MyRefCounted* release_myrefcounted () {
+    const char* CLASS = "Panda::XS::Test::MyRefCounted";
+    MyRefCountedSP autorel(st_myrefcounted);
+    st_myrefcounted->release();
+    RETVAL = st_myrefcounted;
+}
+
+void hold_ptr_myrefcounted (PTRMyRefCounted* obj) {
+    obj->retain();
+    st_myrefcounted = obj;
+}
+
+PTRMyRefCounted* release_ptr_myrefcounted () {
+    const char* CLASS = "Panda::XS::Test::PTRMyRefCounted";
+    MyRefCountedSP autorel(st_myrefcounted);
+    st_myrefcounted->release();
+    RETVAL = st_myrefcounted;
+}
+
+void hold_myrefcounted_sp (MyRefCountedSP obj) {
+    st_myrefcounted_sp = obj;
+}
+
+MyRefCountedSP release_myrefcounted_sp () {
+    const char* CLASS = "Panda::XS::Test::MyRefCountedSP";
+    RETVAL = st_myrefcounted_sp;
+    st_myrefcounted_sp.reset();
+}
+
+void hold_ptr_myrefcounted_sp (PTRMyRefCountedSP obj) {
+    st_myrefcounted_sp = obj;
+}
+
+PTRMyRefCountedSP release_ptr_myrefcounted_sp () {
+    const char* CLASS = "Panda::XS::Test::PTRMyRefCountedSP";
+    RETVAL = st_myrefcounted_sp;
+    st_myrefcounted_sp.reset();
+}
+
+void hold_myclass_sp (MyClassSP obj) {
+    st_myclass_sp = obj;
+}
+
+MyClassSP release_myclass_sp () {
+    const char* CLASS = "Panda::XS::Test::MyClassSP";
+    RETVAL = st_myclass_sp;
+    st_myclass_sp.reset();
+}
+
+void hold_ptr_myclass_sp (PTRMyClassSP obj) {
+    st_myclass_sp = obj;
+}
+
+PTRMyClassSP release_ptr_myclass_sp () {
+    const char* CLASS = "Panda::XS::Test::PTRMyClassSP";
+    RETVAL = st_myclass_sp;
+    st_myclass_sp.reset();
+}
+
+#ifdef CPP11X
+
+void hold_myclass_ssp (MyClassSSP obj) {
+    st_myclass_ssp = obj;
+}
+
+MyClassSSP release_myclass_ssp () {
+    const char* CLASS = "Panda::XS::Test::MyClassSSP";
+    RETVAL = st_myclass_ssp;
+    st_myclass_ssp.reset();
+}
+
+void hold_ptr_myclass_ssp (PTRMyClassSSP obj) {
+    st_myclass_ssp = obj;
+}
+
+PTRMyClassSSP release_ptr_myclass_ssp () {
+    const char* CLASS = "Panda::XS::Test::PTRMyClassSSP";
+    RETVAL = st_myclass_ssp;
+    st_myclass_ssp.reset();
+}
+
+#endif
+
+I32 test_typemap_incast_av (SV* arg) {
+    AV* arr = typemap_incast<AV*>(arg);
+    arr = typemap_incast<AV*>(arg); arr = typemap_incast<AV*>(arg);
+    RETVAL = av_len(arr)+1;
+}
+
+I32 test_typemap_incast_av2 (SV* arg, SV* arg2) {
+    RETVAL = av_len(typemap_incast<AV*>(arg))+av_len(typemap_incast<AV*>(arg2))+2;
+}
+
+int test_typemap_incast_myrefcounted (SV* arg) {
+    RETVAL = typemap_incast<MyRefCounted*>(arg)->val;
+}
+
+SV* test_typemap_outcast_av (SV* listref) {
+    AV* list = typemap_incast<AV*>(listref);
+    AV* ret = newAV();
+    if (list) for (int i = 0; i <= av_len(list); ++i) av_push(ret, newSViv(1));
+    RETVAL = typemap_outcast<AV*>(ret);
+}
+
+SV* test_typemap_outcast_complex (SV* inobjref) {
+    MyRefCountedChildSP inobj = typemap_incast<MyRefCountedChildSP>(inobjref);
+    AV* ret = newAV();
+    av_push(ret, newSViv(inobj->val));
+    av_push(ret, typemap_outcast<MyClassSP, const char* CLASS>(MyClassSP(new MyClass(inobj->val2)), "Panda::XS::Test::MyClassSP"));
+    RETVAL = typemap_outcast<AV*>(ret);
 }
 
 MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::OSV
@@ -270,9 +451,11 @@ PROTOTYPES: DISABLE
 MyOPTR* MyOPTR::new (int arg) {
     if (arg) RETVAL = new MyOPTR(arg);
     else RETVAL = NULL;
+    //printf("CREATED ADDR=%llu\n", RETVAL);
 }
 
 int MyOPTR::val (SV* newval = NULL) {
+    //printf("GOT ADDR=%llu\n", THIS);
     if (newval) THIS->val = SvIV(newval);
     RETVAL = THIS->val;
 }
@@ -501,3 +684,236 @@ int MyBaseHV::val () {
 
 void MyBaseHV::DESTROY ()
 
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyRefCounted
+PROTOTYPES: DISABLE
+
+MyRefCounted* MyRefCounted::new (int val) {
+    RETVAL = new MyRefCounted(val);
+}
+
+int MyRefCounted::val () {
+    RETVAL = THIS->val;
+}
+
+void MyRefCounted::DESTROY ()
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyRefCountedChild
+PROTOTYPES: DISABLE
+
+MyRefCountedChild* MyRefCountedChild::new (int val, int val2) {
+    RETVAL = new MyRefCountedChild(val, val2);
+}
+
+int MyRefCountedChild::val2 () {
+    RETVAL = THIS->val2;
+}
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyRefCountedSP
+PROTOTYPES: DISABLE
+
+MyRefCountedSP new (SV* CLASS, int val) {
+    RETVAL = new MyRefCounted(val);
+}
+
+int val (MyRefCountedSP THIS) {
+    RETVAL = THIS->val;
+}
+
+void DESTROY (MyRefCountedSP THIS)
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyRefCountedChildSP
+PROTOTYPES: DISABLE
+
+MyRefCountedChildSP new (SV* CLASS, int val, int val2) {
+    RETVAL = new MyRefCountedChild(val, val2);
+}
+
+int val2 (MyRefCountedChildSP THIS) {
+    RETVAL = THIS->val2;
+}
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyClassSP
+PROTOTYPES: DISABLE
+
+MyClassSP new (SV* CLASS, int val) {
+    RETVAL = MyClassSP(new MyClass(val));
+}
+
+int val (MyClassSP THIS) {
+    RETVAL = THIS->val;
+}
+
+void DESTROY (MyClassSP THIS)
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyClassChildSP
+PROTOTYPES: DISABLE
+
+MyClassChildSP new (SV* CLASS, int val, int val2) {
+    RETVAL = MyClassChildSP(new MyClassChild(val, val2));
+}
+
+int val2 (MyClassChildSP THIS) {
+    RETVAL = THIS->val2;
+}
+
+
+
+#ifdef CPP11X
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyClassSSP
+PROTOTYPES: DISABLE
+
+MyClassSSP new (SV* CLASS, int val) {
+    RETVAL = MyClassSSP(new MyClass(val));
+}
+
+int val (MyClassSSP THIS) {
+    RETVAL = THIS->val;
+}
+
+void DESTROY (MyClassSSP THIS)
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::MyClassChildSSP
+PROTOTYPES: DISABLE
+
+MyClassChildSSP new (SV* CLASS, int val, int val2) {
+    RETVAL = MyClassChildSSP(new MyClassChild(val, val2));
+}
+
+int val2 (MyClassChildSSP THIS) {
+    RETVAL = THIS->val2;
+}
+
+
+#endif
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyRefCounted
+PROTOTYPES: DISABLE
+
+PTRMyRefCounted* PTRMyRefCounted::new (int val) {
+    RETVAL = new MyRefCounted(val);
+}
+
+int PTRMyRefCounted::val () {
+    RETVAL = THIS->val;
+}
+
+void PTRMyRefCounted::DESTROY ()
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyRefCountedChild
+PROTOTYPES: DISABLE
+
+PTRMyRefCountedChild* PTRMyRefCountedChild::new (int val, int val2) {
+    RETVAL = new MyRefCountedChild(val, val2);
+}
+
+int PTRMyRefCountedChild::val2 () {
+    RETVAL = THIS->val2;
+}
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyRefCountedSP
+PROTOTYPES: DISABLE
+
+PTRMyRefCountedSP new (SV* CLASS, int val) {
+    RETVAL = new MyRefCounted(val);
+}
+
+int val (PTRMyRefCountedSP THIS) {
+    RETVAL = THIS->val;
+}
+
+void DESTROY (PTRMyRefCountedSP THIS)
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyRefCountedChildSP
+PROTOTYPES: DISABLE
+
+PTRMyRefCountedChildSP new (SV* CLASS, int val, int val2) {
+    RETVAL = new MyRefCountedChild(val, val2);
+}
+
+int val2 (PTRMyRefCountedChildSP THIS) {
+    RETVAL = THIS->val2;
+}
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyClassSP
+PROTOTYPES: DISABLE
+
+PTRMyClassSP new (SV* CLASS, int val) {
+    RETVAL = MyClassSP(new MyClass(val));
+}
+
+int val (PTRMyClassSP THIS) {
+    RETVAL = THIS->val;
+}
+
+void DESTROY (PTRMyClassSP THIS)
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyClassChildSP
+PROTOTYPES: DISABLE
+
+PTRMyClassChildSP new (SV* CLASS, int val, int val2) {
+    RETVAL = MyClassChildSP(new MyClassChild(val, val2));
+}
+
+int val2 (PTRMyClassChildSP THIS) {
+    RETVAL = THIS->val2;
+}
+
+
+
+#ifdef CPP11X
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyClassSSP
+PROTOTYPES: DISABLE
+
+PTRMyClassSSP new (SV* CLASS, int val) {
+    RETVAL = MyClassSSP(new MyClass(val));
+}
+
+int val (PTRMyClassSSP THIS) {
+    RETVAL = THIS->val;
+}
+
+void DESTROY (PTRMyClassSSP THIS)
+
+
+
+MODULE = Panda::XS::Test                PACKAGE = Panda::XS::Test::PTRMyClassChildSSP
+PROTOTYPES: DISABLE
+
+PTRMyClassChildSSP new (SV* CLASS, int val, int val2) {
+    RETVAL = MyClassChildSSP(new MyClassChild(val, val2));
+}
+
+int val2 (PTRMyClassChildSSP THIS) {
+    RETVAL = THIS->val2;
+}
+
+
+#endif

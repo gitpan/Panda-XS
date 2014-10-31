@@ -1,5 +1,5 @@
 package Panda::XS;
-use 5.012;
+use 5.018;
 
 =head1 NAME
 
@@ -7,7 +7,7 @@ Panda::XS - useful features and typemaps for XS modules.
 
 =cut
 
-our $VERSION = '0.1.4';
+our $VERSION = '0.1.5';
 require Panda::XSLoader;
 Panda::XSLoader::load();
 
@@ -186,7 +186,60 @@ IV(SCALAR)-based object with C pointer attached.
 
 The main problem of this method is that one cannot fully inherit from your module (no place to store another class' data).
 However you can still use inheritance XS->XS->... if your child's XS uses C++ class which inherits from parent's C++ class.
+In another words, of you still need to hold only single pointer.
 In this case, set 'basetype' to the name of the most parent C++ class. See C<HOW TO> for details.
+
+=item T_OPTR_REFCNT
+
+=item YOUR_TYPE : T_OPTR_REFCNT([basetype=classname], [nocast=1])
+
+A typemap class for C++ objects which inherit from panda::RefCounted class. Enables automatic reference counting (retain() on
+OUTPUT and release() on DESTROY). Remember that you HAVE to define DESTROY function even if you don't have anything to do there.
+Otherwise, release() won't be called!
+
+    void MyClass::DESTROY ()
+
+=item T_OPTR_SHARED
+
+=item YOUR_TYPE : T_OPTR_SHARED([basetype=classname], [nocast=1])
+
+A typemap class for case when you want to store an object in a shared pointer. Shared pointer can be C++11's std::shared_ptr or
+panda::shared_ptr (STL compatible shared pointer which works even without C++11).
+
+Note that if you want to use this typemap, your typemap type must be a shared pointer, not an object's type. Also you must set
+a shared pointer to OUTPUT variable (RETVAL), and you will receive a shared pointer in INPUT args. For example:
+
+    typedef shared_ptr<MyClass> MyClassSP;
+    
+    #typemap
+    MyClassSP T_OPTR_SHARED
+    
+    #XS
+    MyClassSP new (SV* CLASS, int val) {
+        RETVAL = MyClassSP(new MyClass(val));
+    }
+    
+    int get_val (MyClassSP THIS) {
+        RETVAL = THIS->val;
+    }
+    
+    void DESTROY (MyClassSP THIS)
+    
+Also note that shared pointers are passed by value, not by pointer. See how we receive an INPUT arg 'THIS':
+
+    int get_val (MyClassSP THIS)  // CORRECT
+    int get_val (MyClassSP* THIS) // WRONG!!!
+    
+Unfortunately, when using shared pointers, class-methods-like XS syntax is unavailable:
+
+    int MyClassSP::get_val () // WRONG!!!
+    
+Because MakeMaker's ParseXS automatically rewrite it as
+
+    int get_val (MyClassSP* THIS) // WRONG!!!
+
+Remember that you HAVE to define DESTROY function even if you don't have anything to do there.
+Otherwise, shared pointer won't be released!
 
 =item T_OEXT
 
@@ -214,6 +267,7 @@ Extendable object with C pointer attached.
     MyClass::DESTROY ()
     
 This method is much more flexible as it allows for inheritance and even XS -> XS inheritance where each one holds its own C++ object.
+I.e. it can hold an arbitrary number of pointers.
 
 <T_OEXT C type>::new will create scalar-based object (reference to undef)
 
@@ -364,6 +418,18 @@ and exactly like
     my $obj = MyClass->new; # $obj is a blessed HASHREF
 
 =back
+
+=item T_OEXT_REFCNT
+
+=item YOUR_TYPE : T_OEXT_REFCNT([basetype=classname], [nocast=1])
+
+See T_OPTR_REFCNT
+
+=item T_OEXT_SHARED
+
+=item YOUR_TYPE : T_OEXT_SHARED([basetype=classname], [nocast=1])
+
+See T_OPTR_SHARED
 
 
 
@@ -1035,8 +1101,9 @@ In this case we get a memory leak for this type of code:
         my $driver = new Foo::Driver(1, "myname");
     }
     
-How can we avoid deletion in first case and memory leak in second? With current design - we can't.
-To fix that we need to add a reference counter to our objects.
+How can we avoid deletion in first case and memory leak in second?
+
+We need to add a reference counter to our objects!
 
     class Driver {
         private:
@@ -1107,10 +1174,174 @@ We can implement it in typemap to hide these details from XS code.
         else         RETVAL = THIS->second_driver();
     }    
 
-Note, however, that you still need to ->release() object on Driver::DESTROY() as typemap can't do it. Also you need to ->retain()
-and ->release() objects in C++ classes code itself properly as in any other refcounted system.
+Note, however, that you need to retain() and release() objects in C++ classes code itself properly as in any other refcounted system.
 
-See also L<Panda::Lib>, it has T_OEXT_REFCNT typemap class which does ->retain() for output and a base C++ class 'Refcounted'.
+See T_OEXT_REFCNT/T_OPTR_REFCNT typemap class which does retain() / release() automatically and a base C++ class 'panda::RefCounted'.
+
+=head2 USING SHARED POINTERS
+
+The second solution of the problem above is shared pointers. It allows you to solve this problem even if you can't change sources
+of C++ classes.
+
+You can use either STL's std::shared_ptr or compiler-independent panda::shared_ptr which has the same API.
+
+To use shared pointers, just map your shared pointer class to T_OEXT_SHARED or T_OPTR_SHARED.
+
+    typedef shared_ptr<Driver> DriverSP;
+    
+    #typemap
+    DriverSP T_OEXT_SHARED
+    
+    #code
+    
+    class Driver { // we don't need to add anything
+        private:
+        Driver (...) : ... { ... }
+        virtual ~Driver () {...}
+    }
+    
+    class Insurance {
+        private:
+        DriverSP _first_driver;
+        public:
+        DriverSP first_driver () {
+            return _first_driver;
+        }
+        void first_driver (DriverSP driver) {
+            _first_driver = driver;
+        }
+    }
+    
+    #XS
+    
+    DriverSP new (SV* CLASS, ...) {
+        RETVAL = DriverSP(new Driver(...));
+        ...
+    }
+    
+    void DESTROY (DriverSP THIS)
+    
+    ...
+    
+    DriverSP Insurance::first_driver (DriverSP newval = DriverSP()) : ALIAS(second_driver=1) {
+        ...
+        if (ix == 0) RETVAL = THIS->first_driver();
+        else         RETVAL = THIS->second_driver();
+    }    
+
+Using shared pointers introduces slight overheat, as it have to alloc additional memory per object. However, see next paragraph
+to find out how you can remove this overheat while still using shared pointers.
+
+=head2 USING panda::shared_ptr<> FOR CLASSES WHICH INHERIT FROM panda::RefCounted 
+
+If you decided to use panda::shared_ptr instead of std::shared_ptr, you can get some benefit if you inherit your class from
+panda::RefCounted. panda::shared_ptr automatically detects classes which inherit from RefCounted and works differently.
+
+Firstly, it doesn't malloc anything, as your class already has a refcounter. It just calls ->retain and ->release.
+
+Secondly, as you know, creating second std::shared_ptr for an object is a critical mistake. However, for panda::shared_ptr+RefCounted
+it isn't true. You can freely create second, third, etc shared_ptr for any object without losing reference counter.
+
+Thirdly, sizeof(panda::shared_ptr<MyRefCountedChild>) is just one pointer.
+
+That means you can freely interchange T_OEXT/T_OPTR with T_OEXT_SHARED/T_OPTR_SHARED as it will automatically convert from
+MyClass* to MyClassSP and vice verca.
+
+For example:
+
+    typedef shared_ptr<Driver> DriverSP;
+    
+    #typemap
+    Driver*  T_OEXT_REFCNT
+    DriverSP T_OEXT_SHARED
+    
+    #code
+    
+    class Driver : public panda::RefCounted {
+        private:
+        Driver (...) : ... { ... }
+        virtual ~Driver () {...}
+    }
+    
+    class Insurance {
+        private:
+        DriverSP _first_driver;
+        public:
+        DriverSP first_driver () {
+            return _first_driver;
+        }
+        void first_driver (DriverSP driver) {
+            _first_driver = driver;
+        }
+    }
+    
+    #XS
+    
+    Driver* Driver::new (...) {
+        RETVAL = new Driver(...);
+        ...
+    }
+    
+    void Driver::DESTROY ()
+    
+    ...
+    
+    # See how we receive DriverSP, while Driver object is T_OEXT_REFCNT (i.e. Driver*)
+    # It would be a fatal logical error doing this for non-RefCounted classes.
+    DriverSP Insurance::first_driver (DriverSP newval = DriverSP()) : ALIAS(second_driver=1) {
+        ...
+        if (ix == 0) RETVAL = THIS->first_driver();
+        else         RETVAL = THIS->second_driver();
+    }    
+
+Moreover you don't need to bind your class to T_OEXT_SHARED/T_OPTR_SHARED at all, just leave it as T_OEXT_REFCNT/T_OPTR_REFCNT
+as it would automatically convert it to and from shared pointer.
+
+And manly remember, do all of the above in this paragraph ONLY if your class subclasses panda::RefCounted.
+
+=over
+
+=item 
+
+
+
+=head1 C++ CLASSES
+
+=head2 panda::RefCounted
+
+A base class for refcounting.
+
+=head4 SYNOPSIS
+
+    #include <panda/refcnt.h>
+    
+    class MyClass : public RefCounted { ... }
+    
+    MyClass* obj = new MyClass(...);
+    obj->retain();
+    obj->release();
+    shared_ptr<MyClass> myobj(obj);
+
+=head4 [protected] RefCounted ()
+
+Initializes object with refcnt = 0. You will need to call retain() if you want to hold this object. Call release() if you don't
+need it anymore.
+
+=head4 void retain () const
+
+Increments refcounter.
+
+=head4 void release () const
+
+Decrements refcounter and deletes the object if refcounter <= 0.
+
+=head4 int32_t refcnt () const
+
+Returns refcount.
+
+=head2 template <class T> panda::shared_ptr<T>
+
+API is the same as for std::shared_ptr.
 
 
 
@@ -1118,6 +1349,9 @@ See also L<Panda::Lib>, it has T_OEXT_REFCNT typemap class which does ->retain()
 
 All functions and types are in 'xs' namespace so that you will actually need C++ to use them.
 
+=head4 panda::dynamic_pointer_cast/const_pointer_cast/static_pointer_cast
+
+The same as std::*_pointer_cast for panda::shared_ptr and std::shared_ptr.
 
 =head2 PAYLOAD FUNCTIONS
 
@@ -1149,6 +1383,10 @@ Removes payload from sv and returns number of payloads removed.
 
 Same as sv_* but operates on sv referenced by a given rv. Doesn't check if a given RV is valid.
 
+=head4 payload_marker_t* sv_payload_marker (const char* class_name)
+
+Returns a marker for specified key. If no marker exists for that key, creates and returns it.
+
 
 =head2 SUPER/NEXT METHOD FUNCTIONS
 
@@ -1171,88 +1409,6 @@ Calls next method (C3 MRO). Return undef if no next method. See "call_super" for
 =head4 SV* call_next (CV* cv, SV** args, I32 items, next_t type, I32 flags = 0)
 
 Generic form of call_super/call_next_method/call_next_maybe. 'type' is either xs::NEXT_SUPER or xs::NEXT_METHOD or xs::NEXT_MAYBE.
-
-
-=head2 TYPEMAP RELATED FUNCTIONS
-
-=head4 SV* typemap_out_ref (SV* var)
-
-Does what AV*, HV*, etc OUTPUT typemaps do. Creates RV to SV and returns it. If var is NULL, returns undef variable.
-
-=head4 SV* typemap_out_oref (SV* var, const char* CLASS)
-
-=head4 SV* typemap_out_oref (SV* var, SV* CLASS)
-
-Does what OAV*, OHV*, etc OUTPUT typemaps do. Creates RV to SV, blesses it into CLASS and returns it.
-If var is NULL, returns undef variable.
-
-=head4 SV* typemap_out_optr (void* var, const char* CLASS)
-
-=head4 SV* typemap_out_optr (void* var, SV* CLASS)
-
-Does what T_OPTR OUTPUT typemap does. Creates IV from var's address, creates RV to IV, blesses it into CLASS and returns it.
-If var is NULL, returns undef variable.
-
-=head4 SV* typemap_out_oext (SV* self, void* var, const char* CLASS, payload_marker_t* marker = NULL)
-
-=head4 SV* typemap_out_oext (SV* self, void* var, SV* CLASS, payload_marker_t* marker = NULL)
-
-If self is an RV to a bless SV, just attaches var to it using marker as a key. If self is not NULL, but not an RV, then before
-attaching, blesses it into CLASS, and creates an RV. If self is NULL, creates RV to undef. If marker is NULL, uses global default
-marker (&xs::sv_payload_default_marker).
-That means you are not able to store two or more pointers in an SV without passing markers.
-
-Marker can be created by defining it as a global variable in your translation unit for example:
-
-    static payload_marker_t my_marker;
-    
-    ...
-    
-    SV* object = xs::typemap_out_oext(NULL, new MyClass(), "My::Class", &my_marker);
-    
-If you want to have named markers, use 'sv_payload_marker'.
-
-    SV* create_object (int arg) {
-        MyClass* var = new MyClass(arg);
-        static payload_marker_t* marker = xs::sv_payload_marker("MarkerForMyClass");
-        return xs::typemap_out_oext(NULL, var, "My::Class", &marker);
-    }
-
-=head4 payload_marker_t* sv_payload_marker (const char* class_name)
-
-Returns a marker for specified key. If no marker exists for that key, creates and returns it.
-
-=head4 AV* typemap_in_av (SV* arg)
-
-=head4 HV* typemap_in_hv (SV* arg)
-
-=head4 IO* typemap_in_io (SV* arg)
-
-=head4 CV* typemap_in_cv (SV* arg)
-
-Treats arg as an RV to AV/HV/IO/CV and returns AV/HV/IO/CV*. If arg is NULL or arg is not an RV to AV/HV/IO/CV, returns NULL.
-
-=head4 SV* typemap_in_osv (SV* arg)
-
-=head4 AV* typemap_in_oav (SV* arg)
-
-=head4 HV* typemap_in_ohv (SV* arg)
-    
-=head4 IO* typemap_in_oio (SV* arg)
-
-Treats arg as an RV to a blessed AV/HV/IO/SV and returns AV/HV/IO/SV*. If arg is NULL or arg is not an RV to a blessed AV/HV/IO/SV,
-returns NULL.
-
-=head4 void* typemap_in_optr (SV* arg)
-
-Treats arg as an RV to a blessed IV and returns an object stored in IV as void*. If arg is NULL or arg is not an RV to a blessed IV,
-returns NULL.
-
-=head4 void* typemap_in_oext (SV* arg, payload_marker_t* marker = NULL)
-
-Treats arg as an RV to a blessed SV(any) and returns an object attached to SV with marker 'marker' as void*.
-If arg is NULL or arg is not an RV to a blessed SV(any), or nothing attached with specified marker, returns NULL.
-If marker is NULL, uses global default marker.
 
 
 

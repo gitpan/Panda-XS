@@ -1,4 +1,4 @@
-use 5.014;
+use 5.018;
 use Config;
 use Panda::Install;
 
@@ -6,6 +6,7 @@ my $ivbits = $Config{ivsize}*8;
 my %xs = ('XS.xs' => 'XS.c');
 my @typemaps = ('typemap', "typemap$ivbits");
 my $define = '';
+my $ccflags = '';
 
 if ($ENV{TEST_FULL}) { # add test C code to build
     $xs{'test.xs'} = 'test.c';
@@ -13,6 +14,10 @@ if ($ENV{TEST_FULL}) { # add test C code to build
     push @typemaps, 'testmap';
 } else {
     unlink 'test.c', 'test.o';
+}
+
+if ($ENV{CPP11X}) {
+    $ccflags .= ' -std=c++11';
 }
 
 write_makefile(
@@ -32,7 +37,8 @@ write_makefile(
             "typemap$ivbits" => '',
         },
     },
-    MIN_PERL_VERSION => '5.14.0', # required for mg_findext/sv_unmagicext
-    OPTIMIZE => '-g',
+    MIN_PERL_VERSION => '5.18.0', # required for GV_SUPER
+    #OPTIMIZE => '-g',
     DEFINE   => $define,
+    CCFLAGS  => $ccflags,
 );

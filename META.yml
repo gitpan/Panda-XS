@@ -10,9 +10,9 @@ build_requires:
   Test::Simple: '0.96'
 configure_requires:
   ExtUtils::MakeMaker: '6.76'
-  Panda::Install: v0.1.8
+  Panda::Install: v0.2.1
 dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.92, CPAN::Meta::Converter version 2.142060'
+generated_by: 'ExtUtils::MakeMaker version 6.92, CPAN::Meta::Converter version 2.142690'
 license: unknown
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -24,5 +24,5 @@ no_index:
     - inc
 requires:
   Panda::Install: v0.1.5
-  perl: '5.014000'
-version: v0.1.4
+  perl: '5.018000'
+version: v0.1.5

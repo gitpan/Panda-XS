@@ -27,7 +27,7 @@ OUTPUT
 
 T_REF
     $arg = NULL;
-    $arg = xs::typemap_out_ref((SV*)$var);
+    $arg = $var ? newRV_noinc((SV*)$var) : &PL_sv_undef;
 T_AV : T_REF
 T_HV : T_REF
 T_CV : T_REF
@@ -35,7 +35,7 @@ T_IO : T_REF
 
 T_OREF
     $arg = NULL;
-    $arg = xs::typemap_out_oref((SV*)$var, CLASS);
+    $arg = xs::_typemap_out_oref((SV*)$var, CLASS);
 T_OSV : T_OREF
 T_OAV : T_OREF
 T_OHV : T_OREF
@@ -46,83 +46,146 @@ T_OPTR
     ${
         $type =~ s/\s+//g;
         $p{basetype} ||= $type;
-        $p{_downgraded} = $p{nocast} || $p{basetype} eq $type ? $var : "static_cast<$p{basetype}>($var)";
+        my $cast_op = $p{_shared_ptr} ? "panda::static_pointer_cast<$p{basetype}::element_type>" : "static_cast<$p{basetype}>";
+        $p{_pp}{downgraded} = $p{nocast} || $p{basetype} eq $type ? $var : "$cast_op($var)";
         \"";
     };
-    $arg = xs::typemap_out_optr($p{_downgraded}, CLASS);
+    $arg = xs::_typemap_out_optr($p{_pp}{downgraded}, CLASS);
+
+T_OPTR_REFCNT : T_OPTR
+    $var->retain();
+
+T_OPTR_SHARED : T_OPTR(_shared_ptr=1)
 
 T_OEXT
     $arg = NULL;
     ${
         $type =~ s/\s+//g;
         $p{basetype} ||= $type;
-        $p{_downgraded} = $p{nocast} || $p{basetype} eq $type ? $var : "static_cast<$p{basetype}>($var)";
+        my $cast_op = $p{_shared_ptr} ? "panda::static_pointer_cast<$p{basetype}::element_type>" : "static_cast<$p{basetype}>";
+        $p{_pp}{downgraded} = $p{nocast} || $p{basetype} eq $type ? $var : "$cast_op($var)";
         \"";
     };
     INIT: SV* self = NULL;
     static xs::payload_marker_t* __${var}_marker = xs::sv_payload_marker("$p{basetype}");
-    $arg = xs::typemap_out_oext(self, $p{_downgraded}, CLASS, __${var}_marker);
+    $arg = xs::_typemap_out_oext(self, $p{_pp}{downgraded}, CLASS, __${var}_marker);
+    
 T_OEXT_AV : T_OEXT
     if (!self && $var) self = (SV*)newAV();
+    
 T_OEXT_HV : T_OEXT
     if (!self && $var) self = (SV*)newHV();
+    
+T_OEXT_REFCNT : T_OEXT
+    $var->retain();
+
+T_OEXT_SHARED : T_OEXT(_shared_ptr=1)
 
 ######################################################################
 INPUT
 
 T_AV
-    $var = xs::typemap_in_av($arg);
-    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not an ARRAY reference\");
+    if (SvROK($arg) && SvTYPE(SvRV($arg)) == SVt_PVAV) $var = (AV*)SvRV($arg);
+    else if (SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not an ARRAY reference\");
+    else $var = NULL;
     
 T_HV
-    $var = xs::typemap_in_hv($arg);
-    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not a HASH reference\");
+    if (SvROK($arg) && SvTYPE(SvRV($arg)) == SVt_PVHV) $var = (HV*)SvRV($arg);
+    else if (SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not a HASH reference\");
+    else $var = NULL;
 
 T_CV
-    $var = xs::typemap_in_cv($arg);
-    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not a CODE reference\");
+    if (SvROK($arg) && SvTYPE(SvRV($arg)) == SVt_PVCV) $var = (CV*)SvRV($arg);
+    else if (SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not a CODE reference\");
+    else $var = NULL;
 
 T_IO
-    $var = xs::typemap_in_io($arg);
-    if (!$var && SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not an IO reference\");
+    if (SvROK($arg) && SvTYPE(SvRV($arg)) == SVt_PVIO) $var = (IO*)SvRV($arg);
+    else if (SvOK($arg)) croak(\"${Package}::$func_name() -- $var is not an IO reference\");
+    else $var = NULL;
 
 T_OSV
-    $var = xs::typemap_in_osv($arg);
-    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed SCALAR reference\");
+    if (sv_isobject($arg) && SvTYPE(SvRV($arg)) <= SVt_PVMG) $var = SvRV($arg);
+    else if (${\($var eq q!THIS! ? q!1! : qq!SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed SCALAR reference\");
+    else $var = NULL;
 
 T_OAV
-    $var = xs::typemap_in_oav($arg);
-    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed ARRAY reference\");
+    if (sv_isobject($arg) && SvTYPE(SvRV($arg)) == SVt_PVAV) $var = (AV*)SvRV($arg);
+    else if (${\($var eq q!THIS! ? q!1! : qq!SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed ARRAY reference\");
+    else $var = NULL;
     
 T_OHV
-    $var = xs::typemap_in_ohv($arg);
-    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed HASH reference\");
+    if (sv_isobject($arg) && SvTYPE(SvRV($arg)) == SVt_PVHV) $var = (HV*)SvRV($arg);
+    else if (${\($var eq q!THIS! ? q!1! : qq!SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed HASH reference\");
+    else $var = NULL;
 
 T_OIO
-    $var = xs::typemap_in_oio($arg);
-    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed IO reference\");
+    if (sv_isobject($arg) && SvTYPE(SvRV($arg)) == SVt_PVIO) $var = (IO*)SvRV($arg);
+    else if (${\($var eq q!THIS! ? q!1! : qq!SvOK($arg)!)}) croak(\"${Package}::$func_name() -- $var is not a blessed IO reference\");
+    else $var = NULL;
 
 T_OPTR
     ${
         $type =~ s/\s+//g;
         $p{basetype} ||= $type;
-        my $downgraded = qq!($p{basetype})xs::typemap_in_optr($arg)!;
-        $p{_upgraded} = $p{nocast} || $p{basetype} eq $type ? qq!($type)($downgraded)! : qq!dynamic_cast<$type>($downgraded)!;
-        \(\"\");
+        my $code;
+        my $destroy = ($func_name eq q!DESTROY! && $var eq q!THIS! && $p{_shared_ptr}) ? q!, true! : q!!;
+        if ($p{nocast} || $p{basetype} eq $type) {
+            $code = qq!xs::_typemap_in_optr($arg, &$var$destroy)!;
+        } else {
+            my $cast_op = $p{_shared_ptr} ? qq!panda::dynamic_pointer_cast<${type}::element_type>! : qq!dynamic_cast<$type>!;
+            $code = qq!$p{basetype} downgraded;\n!.
+                    qq!        xs::_typemap_in_optr($arg, &downgraded$destroy);\n!.
+                    qq!        $var = $cast_op(downgraded)!;
+        }
+        $p{_pp}{code} = $code;
+        \q!!;
     }
-    $var = $p{_upgraded};
-	if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak( \"${Package}::$func_name() -- $var is not a valid OPTR object\" );
+    {
+        $p{_pp}{code};
+        if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak( \"${Package}::$func_name() -- $var($arg) is not a valid object\" );
+    }	
+
+T_OPTR_REFCNT : T_OPTR
+    @PREVENT_DEFAULT_DELETE_ON_EMPTY_DESTROY
+    ${\( ($func_name eq q!DESTROY! && $var eq 'THIS') ?
+        qq!panda::shared_ptr<$subtype> _pxs_autorelease_$var($var); $var->release();! : q!!
+    )}
+
+T_OPTR_SHARED : T_OPTR(_shared_ptr=1)
+    @PREVENT_DEFAULT_DELETE_ON_EMPTY_DESTROY
 
 T_OEXT
     ${
         $type =~ s/\s+//g;
         $p{basetype} ||= $type;
-        my $downgraded = qq!($p{basetype})xs::typemap_in_oext($arg, __${var}_marker)!;
-        $p{_upgraded} = $p{nocast} || $p{basetype} eq $type ? qq!($type)($downgraded)! : qq!dynamic_cast<$type>($downgraded)!;
-        \(\"\");
+        my $code;
+        my $destroy = ($func_name eq q!DESTROY! && $var eq q!THIS! && $p{_shared_ptr}) ? q!, true! : q!!;
+        if ($p{nocast} || $p{basetype} eq $type) {
+            $code = qq!xs::_typemap_in_oext($arg, &$var, __${var}_marker$destroy);!;
+        } else {
+            my $cast_op = $p{_shared_ptr} ? qq!panda::dynamic_pointer_cast<${type}::element_type>! : qq!dynamic_cast<$type>!;
+            $code = qq!$p{basetype} downgraded;\n!.
+                    qq!        xs::_typemap_in_oext($arg, &downgraded, __${var}_marker$destroy);\n!.
+                    qq!        $var = $cast_op(downgraded);!;
+        }
+        $p{_pp}{code} = $code;
+        \q!!;
     }
     static xs::payload_marker_t* __${var}_marker = xs::sv_payload_marker(\"$p{basetype}\");
-    $var = $p{_upgraded};
-    if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak( \"${Package}::$func_name() -- $var($arg) is not a valid OEXT object\" );
+    {
+        $p{_pp}{code};
+        if (!$var${\($var eq q!THIS! ? q!! : qq! && SvOK($arg)!)}) croak( \"${Package}::$func_name() -- $var($arg) is not a valid object\" );
+    }
 T_OEXT_AV : T_OEXT
 T_OEXT_HV : T_OEXT
+
+T_OEXT_REFCNT : T_OEXT
+    @PREVENT_DEFAULT_DELETE_ON_EMPTY_DESTROY
+    ${\( ($func_name eq q!DESTROY! && $var eq 'THIS') ?
+        qq!panda::shared_ptr<$subtype> _pxs_autorelease_$var($var); $var->release();! : q!!
+    )}
+
+T_OEXT_SHARED : T_OEXT(_shared_ptr=1)
+    @PREVENT_DEFAULT_DELETE_ON_EMPTY_DESTROY
+

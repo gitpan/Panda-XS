@@ -1,7 +1,6 @@
 #include <xs/xs.h>
-using xs::payload_marker_t;
 
-STATIC payload_marker_t marker;
+STATIC xs::payload_marker_t marker;
 
 #ifdef TEST_FULL
 XS_EXTERNAL(boot_Panda__XS__Test);
@@ -11,29 +10,22 @@ MODULE = Panda::XS                PACKAGE = Panda::XS
 PROTOTYPES: DISABLE
 
 void sv_payload_attach (SV* sv, SV* payload) {
-    SvUPGRADE(sv, SVt_PVMG);
-    sv_unmagicext(sv, PERL_MAGIC_ext, &marker);
-    MAGIC* mg = sv_magicext(sv, payload, PERL_MAGIC_ext, &marker, NULL, 0);
-    mg->mg_flags |= MGf_REFCOUNTED;
+    xs::sv_payload_detach(sv, &marker);
+    xs::sv_payload_attach(sv, payload, &marker);
 }    
     
 bool sv_payload_exists (SV* sv) {
-    if (SvTYPE(sv) < SVt_PVMG) XSRETURN_UNDEF;
-    RETVAL = mg_findext(sv, PERL_MAGIC_ext, &marker) != NULL;
+    RETVAL = xs::sv_payload_exists(sv, &marker);
 }   
     
 SV* sv_payload (SV* sv) {
-    if (SvTYPE(sv) < SVt_PVMG) XSRETURN_UNDEF;
-    MAGIC* mg = mg_findext(sv, PERL_MAGIC_ext, &marker);
-    if (!mg) XSRETURN_UNDEF;
-    RETVAL = mg->mg_obj;
-    SvREFCNT_inc(RETVAL);
+    RETVAL = xs::sv_payload_sv(sv, &marker);
+    if (!RETVAL) XSRETURN_UNDEF;
+    else SvREFCNT_inc_simple_void_NN(RETVAL);
 }    
 
 int sv_payload_detach (SV* sv) {
-    RETVAL = 0;
-    if (SvTYPE(sv) < SVt_PVMG) XSRETURN(1);
-    RETVAL = sv_unmagicext(sv, PERL_MAGIC_ext, &marker);
+    RETVAL = xs::sv_payload_detach(sv, &marker);
 }
 
 void obj2hv (SV* rv) {

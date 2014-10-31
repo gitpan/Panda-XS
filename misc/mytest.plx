@@ -7,6 +7,4 @@ use Devel::Peek;
 
 say "START";
 
-Dump(Panda::XS::Test::mytest(undef));
-
 say "END";

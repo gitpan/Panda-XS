@@ -3,6 +3,7 @@ lib/Panda/XS.pm
 Makefile.PL
 MANIFEST			This list of files
 misc/mytest.plx
+src/panda/refcnt.h
 src/xs/ppport.h
 src/xs/xs.cc
 src/xs/xs.h
@@ -14,12 +15,21 @@ t/04-typemap-refs.t
 t/05-typemap-orefs.t
 t/06-typemap-optr-single.t
 t/07-typemap-optr-child.t
-t/08-typemap-oext-single.t
-t/09-typemap-oext-child.t
-t/10-typemap-oext-join.t
-t/11-typemap-oext-mixin.t
-t/12-typemap-oext-wrap.t
-t/13-typemap-oext-avhv.t
+t/08-typemap-optr-refcnt.t
+t/09-typemap-optr-shared1x.t
+t/10-typemap-optr-shared2x.t
+t/11-typemap-optr-stdshared.t
+t/12-typemap-oext-single.t
+t/13-typemap-oext-child.t
+t/14-typemap-oext-join.t
+t/15-typemap-oext-mixin.t
+t/16-typemap-oext-wrap.t
+t/17-typemap-oext-avhv.t
+t/18-typemap-oext-refcnt.t
+t/19-typemap-oext-shared1x.t
+t/20-typemap-oext-shared2x.t
+t/21-typemap-oext-stdshared.t
+t/22-typemap-cast.t
 test.xs
 testmap
 typemap

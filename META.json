@@ -4,7 +4,7 @@
       "unknown"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.92, CPAN::Meta::Converter version 2.142060",
+   "generated_by" : "ExtUtils::MakeMaker version 6.92, CPAN::Meta::Converter version 2.142690",
    "license" : [
       "unknown"
    ],
@@ -32,16 +32,16 @@
       "configure" : {
          "requires" : {
             "ExtUtils::MakeMaker" : "6.76",
-            "Panda::Install" : "v0.1.8"
+            "Panda::Install" : "v0.2.1"
          }
       },
       "runtime" : {
          "requires" : {
             "Panda::Install" : "v0.1.5",
-            "perl" : "5.014000"
+            "perl" : "5.018000"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "v0.1.4"
+   "version" : "v0.1.5"
 }
