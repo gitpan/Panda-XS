@@ -10,21 +10,42 @@ namespace panda {
 
 static long int void_refcnt = 1;
 
-#ifdef CPP11X
-    using std::is_base_of;
-#else
-    namespace {
-        template<class B, class D> struct is_base_of {
-            template<typename T> struct dummy {};
-            struct Child : D, dummy<int> {};
+template < typename T >
+struct HasRetain
+{
+    typedef char yes;
+    typedef char no[2];
 
-            static B* Check (B*);
-            template<class T> static char Check (dummy<T>*);
+    struct fallback { int retain; };
+    struct mixed_type: T, fallback {};
+    template < typename U, U > struct type_check {};
 
-            static const bool value = (sizeof(Check((Child*)0)) == sizeof(B*));
-        };
-    }
-#endif
+    template < typename U > static no&  test( type_check< int (fallback::*), &U::retain >* = 0 );
+    template < typename U > static yes& test( ... );
+
+    static const bool value = sizeof( yes ) == sizeof( test< mixed_type >( NULL ) );
+};
+
+template < typename T >
+struct HasRelease
+{
+    typedef char yes;
+    typedef char no[2];
+
+    struct fallback { int release; };
+    struct mixed_type: T, fallback {};
+    template < typename U, U > struct type_check {};
+
+    template < typename U > static no&  test( type_check< int (fallback::*), &U::release >* = 0 );
+    template < typename U > static yes& test( ... );
+
+    static const bool value = sizeof( yes ) == sizeof( test< mixed_type >( NULL ) );
+};
+
+template <typename T>
+struct IsRefCounted {
+    static const bool value = HasRelease<T>::value && HasRetain<T>::value;
+};
 
 class RefCounted {
     private:
@@ -40,7 +61,7 @@ class RefCounted {
     int32_t refcnt  () const { return _refcnt; }
 };
 
-template <typename T, bool A = is_base_of<RefCounted, T>::value>
+template <typename T, bool A = IsRefCounted<T>::value>
 class shared_ptr {};
 
 template <typename T>

@@ -7,7 +7,7 @@ Panda::XS - useful features and typemaps for XS modules.
 
 =cut
 
-our $VERSION = '0.1.5';
+our $VERSION = '0.1.6';
 require Panda::XSLoader;
 Panda::XSLoader::load();
 
@@ -1438,6 +1438,16 @@ Returns true if $target has any payload.
 =head4 sv_payload_detach ($target)
 
 Removes payload from $target. Returns true if any payload has been removed.
+
+=head4 rv_payload_attach ($target, $payload)
+
+=head4 rv_payload ($target)
+
+=head4 rv_payload_exists ($target)
+
+=head4 rv_payload_detach ($target)
+
+Same as sv_* but $target must be reference to perl object.
 
 =head1 CAVEATS
 

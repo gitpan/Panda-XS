@@ -28,6 +28,29 @@ int sv_payload_detach (SV* sv) {
     RETVAL = xs::sv_payload_detach(sv, &marker);
 }
 
+void rv_payload_attach (SV* rv, SV* payload) {
+    if (!SvROK(rv)) croak("Panda::XS::rv_payload_attach: argument is not a reference"); 
+    xs::rv_payload_detach(rv, &marker);
+    xs::rv_payload_attach(rv, payload, &marker);
+}    
+    
+bool rv_payload_exists (SV* rv) {
+    if (!SvROK(rv)) croak("Panda::XS::rv_payload_exists: argument is not a reference"); 
+    RETVAL = xs::rv_payload_exists(rv, &marker);
+}   
+    
+SV* rv_payload (SV* rv) {
+    if (!SvROK(rv)) croak("Panda::XS::rv_payload: argument is not a reference"); 
+    RETVAL = xs::rv_payload_sv(rv, &marker);
+    if (!RETVAL) XSRETURN_UNDEF;
+    else SvREFCNT_inc_simple_void_NN(RETVAL);
+}    
+
+int rv_payload_detach (SV* rv) {
+    if (!SvROK(rv)) croak("Panda::XS::rv_payload_detach: argument is not a reference"); 
+    RETVAL = xs::rv_payload_detach(rv, &marker);
+}
+
 void obj2hv (SV* rv) {
     if (!SvROK(rv)) croak("Panda::XS::obj2hv: argument is not a reference");
     SV* obj = SvRV(rv);

@@ -1,3 +1,5 @@
+0.1.6	 06.11.2014
+           - added rv_payload_attach, rv_payload_detach, rv_payload_exists, rv_payload
 0.1.5    31.10.2014
            - require perl 5.18.0 (earlier perls dont have required API)
            - added shared_ptr, Refcounted and docs
